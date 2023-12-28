@@ -5,22 +5,28 @@
 # pylint: disable=wrong-import-position
 from azure.cli.core.util import is_spython
 
-import builtins
-from unittest.mock import Mock
+import sys
+from azure.cli.core.vendored_sdks import winrequests
+
+sys.modules['requests'] = winrequests
 
 old_import = __import__
+from unittest.mock import Mock
+import builtins
 
 
 class Dummy(Mock):
+    @property
     def __version__(self):
         return '2.0.0'
 
 
-dummy = Dummy()
+dummy =Mock()
 
 
 def skip_imports(name, locals=None, globals=None, fromlist=None, level=0):
-    skip_list = {'requests', 'urllib3', 'cryptography'}
+    # Some vendored packages still try to import these packages, which are not supported in SPython
+    skip_list = {'urllib3', 'ctypes', 'requests_oauthlib', 'cryptography'}
     if name in skip_list or any(name.startswith(f'{b}.') for b in skip_list):
         return dummy
     else:
@@ -30,6 +36,7 @@ def skip_imports(name, locals=None, globals=None, fromlist=None, level=0):
 builtins.__import__ = skip_imports
 
 import timeit
+
 # Log the start time
 start_time = timeit.default_timer()
 
@@ -45,14 +52,12 @@ from knack.log import get_logger
 __author__ = "Microsoft Corporation <python@microsoft.com>"
 __version__ = "2.52.0"
 
-
 # A workaround for https://bugs.python.org/issue32502 (https://github.com/Azure/azure-cli/issues/5184)
 # If uuid1 raises ValueError, use uuid4 instead.
 try:
     uuid.uuid1()
 except ValueError:
     uuid.uuid1 = uuid.uuid4
-
 
 logger = get_logger(__name__)
 
@@ -97,19 +102,26 @@ finally:
     try:
         # check for new version auto-upgrade
         if exit_code == 0 and az_cli.config.getboolean('auto-upgrade', 'enable', False) and not is_spython() and \
-                sys.argv[1] != 'upgrade' and (sys.argv[1] != 'extension' or sys.argv[2] != 'update'):   # pylint: disable=too-many-boolean-expressions,line-too-long
+                sys.argv[1] != 'upgrade' and (sys.argv[1] != 'extension' or sys.argv[
+            2] != 'update'):  # pylint: disable=too-many-boolean-expressions,line-too-long
             from azure.cli.core._session import VERSIONS  # pylint: disable=ungrouped-imports
-            from azure.cli.core.util import get_cached_latest_versions, _VERSION_UPDATE_TIME  # pylint: disable=ungrouped-imports
+            from azure.cli.core.util import get_cached_latest_versions, \
+                _VERSION_UPDATE_TIME  # pylint: disable=ungrouped-imports
+
             if VERSIONS[_VERSION_UPDATE_TIME]:
                 import datetime
+
                 version_update_time = datetime.datetime.strptime(VERSIONS[_VERSION_UPDATE_TIME], '%Y-%m-%d %H:%M:%S.%f')
                 if datetime.datetime.now() > version_update_time + datetime.timedelta(days=11):
                     get_cached_latest_versions()
                 from packaging.version import parse
-                if parse(VERSIONS['versions']['core']['local']) < parse(VERSIONS['versions']['core']['pypi']):  # pylint: disable=line-too-long
+
+                if parse(VERSIONS['versions']['core']['local']) < parse(
+                        VERSIONS['versions']['core']['pypi']):  # pylint: disable=line-too-long
                     import subprocess
                     import platform
                     from azure.cli.core.azclierror import UnclassifiedUserFault  # pylint: disable=ungrouped-imports
+
                     logger.warning("New Azure CLI version available. Running 'az upgrade' to update automatically.")
                     update_all = az_cli.config.getboolean('auto-upgrade', 'all', True)
                     prompt = az_cli.config.getboolean('auto-upgrade', 'prompt', True)
@@ -118,19 +130,21 @@ finally:
                     upgrade_exit_code = None
                     if prompt:
                         from knack.prompting import verify_is_a_tty, NoTTYException  # pylint: disable=ungrouped-imports
+
                         az_upgrade_run = True
                         try:
                             verify_is_a_tty()
                         except NoTTYException:
                             az_upgrade_run = False
                             err_msg = "Unable to prompt for auto upgrade as no tty available. " \
-                                "Run 'az config set auto-upgrade.prompt=no' to allow auto upgrade with no prompt."
+                                      "Run 'az config set auto-upgrade.prompt=no' to allow auto upgrade with no prompt."
                             logger.warning(err_msg)
                             telemetry.set_exception(UnclassifiedUserFault(err_msg), fault_type='auto-upgrade-failed')
                         else:
                             upgrade_exit_code = subprocess.call(cmd, shell=platform.system() == 'Windows')
                     else:
                         import os
+
                         devnull = open(os.devnull, 'w')
                         cmd.append('-y')
                         upgrade_exit_code = subprocess.call(cmd, shell=platform.system() == 'Windows', stdout=devnull)

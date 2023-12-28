@@ -163,6 +163,7 @@ pushd %CLI_SRC%\azure-cli\
     powershell -Command "(Get-Content requirements.py3.windows-spython.txt) -replace '^azure-cli-core==.*', '' | Out-File -encoding utf8 requirements.py3.windows-spython.txt"
     powershell -Command "(Get-Content requirements.py3.windows-spython.txt) -replace '^azure-cli-telemetry==.*', '' | Out-File -encoding utf8 requirements.py3.windows-spython.txt"
     powershell -Command "(Get-Content requirements.py3.windows-spython.txt) -replace '^azure-cli==.*', '' | Out-File -encoding utf8 requirements.py3.windows-spython.txt"
+    REM pip and related packages is installed to python folder, manually add setuptools to spython
     echo setuptools>=63.4.2 >> requirements.py3.windows-spython.txt
 popd
 
