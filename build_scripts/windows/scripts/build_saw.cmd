@@ -196,28 +196,28 @@ robocopy %PYTHON_DIR%\Lib\site-packages\azure\cli %SPYTHON_LIB%\azure\cli /s /NF
 robocopy %SPYTHON_DIR%\Microsoft.Internal.SPython.win32.%SPYTHON_VERSION%\tools %BUILDING_DIR% /s /NFL /NDL
 
 REM Replace requests to winrequests
-echo Replace requests to winrequests
-for %%d in ("msrest" "msal" "msrestazure" "azure\multiapi\storagev2\blob") do (
-    echo processing %BUILDING_DIR%\Lib\%%d
-    pushd %BUILDING_DIR%\Lib\%%d
-    for /R %%a in ("*.py") do (
-        powershell -Command "(Get-Content %%a) -replace '^\s*import requests_oauthlib as oauth', '' | Out-File -encoding utf8 %%a"
-        powershell -Command "(Get-Content %%a) -replace '^(\s*)from requests', '$1from azure.cli.core.vendored_sdks.winrequests' | Out-File -encoding utf8 %%a"
-        powershell -Command "(Get-Content %%a) -replace '^(\s*)import requests', '$1import azure.cli.core.vendored_sdks.winrequests as requests' | Out-File -encoding utf8 %%a"
-        powershell -Command "(Get-Content %%a) -replace '^\s*from urllib3 import Retry', '' | Out-File -encoding utf8 %%a"
-    )
-    %BUILDING_DIR%\python.exe -m compileall .
-    popd
- )
-
-REM Remove cryptography
-echo Remove cryptography
-pushd %BUILDING_DIR%\Lib\azure\multiapi\storagev2
-for /R %%a in (*encryption.py) do (
-    powershell -Command "(Get-Content %%a) -replace '^from cryptography.*', '' | Out-File -encoding utf8 %%a"
-)
-%BUILDING_DIR%\python.exe -m compileall .
-popd
+@REM echo Replace requests to winrequests
+@REM for %%d in ("msrest" "msal" "msrestazure" "azure\multiapi\storagev2\blob") do (
+@REM     echo processing %BUILDING_DIR%\Lib\%%d
+@REM     pushd %BUILDING_DIR%\Lib\%%d
+@REM     for /R %%a in ("*.py") do (
+@REM         powershell -Command "(Get-Content %%a) -replace '^\s*import requests_oauthlib as oauth', '' | Out-File -encoding utf8 %%a"
+@REM         powershell -Command "(Get-Content %%a) -replace '^(\s*)from requests', '$1from azure.cli.core.vendored_sdks.winrequests' | Out-File -encoding utf8 %%a"
+@REM         powershell -Command "(Get-Content %%a) -replace '^(\s*)import requests', '$1import azure.cli.core.vendored_sdks.winrequests as requests' | Out-File -encoding utf8 %%a"
+@REM         powershell -Command "(Get-Content %%a) -replace '^\s*from urllib3 import Retry', '' | Out-File -encoding utf8 %%a"
+@REM     )
+@REM     %BUILDING_DIR%\python.exe -m compileall .
+@REM     popd
+@REM  )
+@REM
+@REM REM Remove cryptography
+@REM echo Remove cryptography
+@REM pushd %BUILDING_DIR%\Lib\azure\multiapi\storagev2
+@REM for /R %%a in (*encryption.py) do (
+@REM     powershell -Command "(Get-Content %%a) -replace '^from cryptography.*', '' | Out-File -encoding utf8 %%a"
+@REM )
+@REM %BUILDING_DIR%\python.exe -m compileall .
+@REM popd
 
 %BUILDING_DIR%\python.exe -m azure.cli --version
 
@@ -243,29 +243,29 @@ copy %REPO_ROOT%\build_scripts\windows\resources\ThirdPartyNotices.txt %BUILDING
 copy %REPO_ROOT%\NOTICE.txt %BUILDING_DIR%
 
 REM Remove .py and only deploy .pyc files
-pushd %BUILDING_DIR%\Lib
-for /f %%f in ('dir /b /s *.pyc') do (
-    set PARENT_DIR=%%~df%%~pf..
-    echo !PARENT_DIR! | findstr /C:\Lib\site-packages\pip\ 1>nul
-    if !errorlevel! neq  0 (
-        REM Only take the file name without 'pyc' extension: e.g., (same below) __init__.cpython-310
-        set FILENAME=%%~nf
-        REM Truncate the '.cpython-310' postfix which is 12 chars long: __init__
-        REM https://stackoverflow.com/a/636391/2199657
-        set BASE_FILENAME=!FILENAME:~0,-12!
-        REM __init__.pyc
-        set pyc=!BASE_FILENAME!.pyc
-        REM Delete ..\__init__.py
-        del !PARENT_DIR!\!BASE_FILENAME!.py
-        REM Copy to ..\__init__.pyc
-        copy %%~f !PARENT_DIR!\!pyc! >nul
-        REM Delete __init__.pyc
-        del %%~f
-    ) ELSE (
-        echo --SKIP !PARENT_DIR! under pip
-    )
-)
-popd
+@REM pushd %BUILDING_DIR%\Lib
+@REM for /f %%f in ('dir /b /s *.pyc') do (
+@REM     set PARENT_DIR=%%~df%%~pf..
+@REM     echo !PARENT_DIR! | findstr /C:\Lib\site-packages\pip\ 1>nul
+@REM     if !errorlevel! neq  0 (
+@REM         REM Only take the file name without 'pyc' extension: e.g., (same below) __init__.cpython-310
+@REM         set FILENAME=%%~nf
+@REM         REM Truncate the '.cpython-310' postfix which is 12 chars long: __init__
+@REM         REM https://stackoverflow.com/a/636391/2199657
+@REM         set BASE_FILENAME=!FILENAME:~0,-12!
+@REM         REM __init__.pyc
+@REM         set pyc=!BASE_FILENAME!.pyc
+@REM         REM Delete ..\__init__.py
+@REM         del !PARENT_DIR!\!BASE_FILENAME!.py
+@REM         REM Copy to ..\__init__.pyc
+@REM         copy %%~f !PARENT_DIR!\!pyc! >nul
+@REM         REM Delete __init__.pyc
+@REM         del %%~f
+@REM     ) ELSE (
+@REM         echo --SKIP !PARENT_DIR! under pip
+@REM     )
+@REM )
+@REM popd
 
 REM Remove __pycache__
 echo remove pycache

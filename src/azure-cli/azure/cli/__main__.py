@@ -5,6 +5,30 @@
 # pylint: disable=wrong-import-position
 from azure.cli.core.util import is_spython
 
+import builtins
+from unittest.mock import Mock
+
+old_import = __import__
+
+
+class Dummy(Mock):
+    def __version__(self):
+        return '2.0.0'
+
+
+dummy = Dummy()
+
+
+def skip_imports(name, locals=None, globals=None, fromlist=None, level=0):
+    skip_list = {'requests', 'urllib3', 'cryptography'}
+    if name in skip_list or any(name.startswith(f'{b}.') for b in skip_list):
+        return dummy
+    else:
+        return old_import(name, locals, globals, fromlist, level)
+
+
+builtins.__import__ = skip_imports
+
 import timeit
 # Log the start time
 start_time = timeit.default_timer()
