@@ -197,7 +197,7 @@ robocopy %SPYTHON_DIR%\Microsoft.Internal.SPython.win32.%SPYTHON_VERSION%\tools 
 
 REM Replace requests to winrequests
 @REM echo Replace requests to winrequests
-@REM for %%d in ("msrest" "msal" "msrestazure" "azure\multiapi\storagev2\blob") do (
+@REM for %%d in ("msrest" "msal" "msrestazure" "azure\multiapi\storagev2" "azure\multiapi\storage" "azure\multiapi\storagev2\blob") do (
 @REM     echo processing %BUILDING_DIR%\Lib\%%d
 @REM     pushd %BUILDING_DIR%\Lib\%%d
 @REM     for /R %%a in ("*.py") do (
