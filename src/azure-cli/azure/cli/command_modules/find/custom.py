@@ -9,6 +9,7 @@ import json
 import re
 import sys
 import platform
+import requests
 import colorama  # pylint: disable=import-error
 
 
@@ -91,8 +92,6 @@ def should_enable_styling():
 
 
 def call_aladdin_service(query):
-    import requests
-
     version = str(parse(core_version))
     correlation_id = telemetry_core._session.correlation_id   # pylint: disable=protected-access
     subscription_id = telemetry_core._get_azure_subscription_id()  # pylint: disable=protected-access

@@ -9,10 +9,7 @@ import base64
 import hashlib
 import secrets
 
-try:
-    from cryptography.hazmat.primitives.serialization import Encoding
-except ImportError:
-    pass
+from cryptography.hazmat.primitives.serialization import Encoding
 
 
 class Utils:

@@ -27,14 +27,11 @@ from azure.cli.core.azclierror import InvalidArgumentValueError, RequiredArgumen
 from azure.cli.core.profiles import ResourceType, AZURE_API_PROFILES, SDKProfile
 from azure.cli.core.util import sdk_no_wait
 
-try:
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.asymmetric import rsa, ec
-    from cryptography.hazmat.primitives.serialization import load_pem_private_key, Encoding, PublicFormat
-    from cryptography.exceptions import UnsupportedAlgorithm
-    from cryptography.x509 import load_pem_x509_certificate
-except ImportError:
-    pass
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa, ec
+from cryptography.hazmat.primitives.serialization import load_pem_private_key, Encoding, PublicFormat
+from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.x509 import load_pem_x509_certificate
 
 from knack.log import get_logger
 from knack.util import CLIError
@@ -1396,10 +1393,8 @@ def _extract_ec_public_key_from_jwk(jwk_dict):
     return public.public_key(default_backend())
 
 
-def _export_public_key(k, encoding=None):
+def _export_public_key(k, encoding=Encoding.PEM):
     # https://github.com/mpdavis/python-jose/blob/eed086d7650ccbd4ea8b555157aff3b1b99f14b9/jose/backends/cryptography_backend.py#L329-L332
-    if encoding is None:
-        encoding = Encoding.PEM
     return k.public_bytes(
         encoding=encoding,
         format=PublicFormat.SubjectPublicKeyInfo

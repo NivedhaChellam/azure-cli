@@ -6,6 +6,7 @@
 import time
 import os
 import urllib
+import urllib3
 import certifi
 
 from knack.log import get_logger
@@ -220,7 +221,6 @@ def _remove_list_duplicates(webapp):
 
 
 def get_pool_manager(url):
-    import urllib3
     proxies = urllib.request.getproxies()
     bypass_proxy = urllib.request.proxy_bypass(urllib.parse.urlparse(url).hostname)
 

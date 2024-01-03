@@ -60,10 +60,7 @@ def handle_exception(ex):  # pylint: disable=too-many-locals, too-many-statement
     from msrest.exceptions import HttpOperationError, ValidationError, ClientRequestError
     from azure.common import AzureException
     from azure.core.exceptions import AzureError, ServiceRequestError
-    try:
-        from requests.exceptions import SSLError, HTTPError
-    except ImportError:
-        SSLError, HTTPError = create_exception(['SSLError', 'HTTPError'])
+    from requests.exceptions import SSLError, HTTPError
     from azure.cli.core import azclierror
     from msal_extensions.persistence import PersistenceError
 
