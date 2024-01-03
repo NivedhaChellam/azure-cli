@@ -14,21 +14,16 @@ old_import = __import__
 from unittest.mock import Mock
 import builtins
 
-
-class Dummy(Mock):
-    @property
-    def __version__(self):
-        return '2.0.0'
-
-
-dummy =Mock()
+# supress warnings from distutils and pkg_resources
+import warnings
+warnings.simplefilter("ignore")
 
 
 def skip_imports(name, locals=None, globals=None, fromlist=None, level=0):
     # Some vendored packages still try to import these packages, which are not supported in SPython
     skip_list = {'urllib3', 'ctypes', 'requests_oauthlib', 'cryptography'}
     if name in skip_list or any(name.startswith(f'{b}.') for b in skip_list):
-        return dummy
+        return Mock()
     else:
         return old_import(name, locals, globals, fromlist, level)
 
