@@ -9,6 +9,8 @@ import re
 import time
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple, TypeVar, Union
+import datetime
+from dateutil.parser import parse
 
 from azure.mgmt.containerservice.models import KubernetesSupportPlan
 
@@ -408,21 +410,29 @@ class AKSManagedClusterContext(BaseAKSContext):
     def __validate_gmsa_options(
         self,
         enable_windows_gmsa,
+        disable_windows_gmsa,
         gmsa_dns_server,
         gmsa_root_domain_name,
         yes,
     ) -> None:
         """Helper function to validate gmsa related options.
 
-        When enable_windows_gmsa is specified, if both gmsa_dns_server and gmsa_root_domain_name are not assigned and
-        user does not confirm the operation, a DecoratorEarlyExitException will be raised; if only one of
-        gmsa_dns_server or gmsa_root_domain_name is assigned, raise a RequiredArgumentMissingError. When
-        enable_windows_gmsa is not specified, if any of gmsa_dns_server or gmsa_root_domain_name is assigned, raise
-        a RequiredArgumentMissingError.
+        When enable_windows_gmsa is specified, a InvalidArgumentValueError will be raised if disable_windows_gmsa
+        is also specified; if both gmsa_dns_server and gmsa_root_domain_name are not assigned and user does not
+        confirm the operation, a DecoratorEarlyExitException will be raised; if only one of gmsa_dns_server or
+        gmsa_root_domain_name is assigned, raise a RequiredArgumentMissingError. When enable_windows_gmsa is
+        not specified, if any of gmsa_dns_server or gmsa_root_domain_name is assigned, raise a RequiredArgumentMissingError.
+        When disable_windows_gmsa is specified, if gmsa_dns_server or gmsa_root_domain_name is
+        assigned, raise a InvalidArgumentValueError.
 
         :return: bool
         """
         if enable_windows_gmsa:
+            if disable_windows_gmsa:
+                raise InvalidArgumentValueError(
+                    "You should not set --disable-windows-gmsa "
+                    "when setting --enable-windows-gmsa."
+                )
             if gmsa_dns_server is None and gmsa_root_domain_name is None:
                 msg = (
                     "Please assure that you have set the DNS server in the vnet used by the cluster "
@@ -435,10 +445,18 @@ class AKSManagedClusterContext(BaseAKSContext):
                     "You must set or not set --gmsa-dns-server and --gmsa-root-domain-name at the same time."
                 )
         else:
+            if not disable_windows_gmsa:
+                if any([gmsa_dns_server, gmsa_root_domain_name]):
+                    raise RequiredArgumentMissingError(
+                        "You only can set --gmsa-dns-server and --gmsa-root-domain-name "
+                        "when setting --enable-windows-gmsa."
+                    )
+
+        if disable_windows_gmsa:
             if any([gmsa_dns_server, gmsa_root_domain_name]):
-                raise RequiredArgumentMissingError(
-                    "You only can set --gmsa-dns-server and --gmsa-root-domain-name "
-                    "when setting --enable-windows-gmsa."
+                raise InvalidArgumentValueError(
+                    "You should not set --gmsa-dns-server nor --gmsa-root-domain-name "
+                    "when setting --disable-windows-gmsa."
                 )
 
     def get_subscription_id(self):
@@ -1250,14 +1268,14 @@ class AKSManagedClusterContext(BaseAKSContext):
                 enable_validation=False
             )
             self.__validate_gmsa_options(
-                enable_windows_gmsa, gmsa_dns_server, gmsa_root_domain_name, self.get_yes()
+                enable_windows_gmsa, self._get_disable_windows_gmsa(enable_validation=False), gmsa_dns_server, gmsa_root_domain_name, self.get_yes()
             )
         return enable_windows_gmsa
 
     def get_enable_windows_gmsa(self) -> bool:
         """Obtain the value of enable_windows_gmsa.
 
-        This function will verify the parameter by default. When enable_windows_gmsa is specified, if both
+        This function will verify the parameter by default. When enable_windows_gmsa is specified, a ; if both
         gmsa_dns_server and gmsa_root_domain_name are not assigned and user does not confirm the operation,
         a DecoratorEarlyExitException will be raised; if only one of gmsa_dns_server or gmsa_root_domain_name is
         assigned, raise a RequiredArgumentMissingError. When enable_windows_gmsa is not specified, if any of
@@ -1320,6 +1338,7 @@ class AKSManagedClusterContext(BaseAKSContext):
         if enable_validation:
             self.__validate_gmsa_options(
                 self._get_enable_windows_gmsa(enable_validation=False),
+                self._get_disable_windows_gmsa(enable_validation=False),
                 gmsa_dns_server,
                 gmsa_root_domain_name,
                 self.get_yes(),
@@ -1339,6 +1358,49 @@ class AKSManagedClusterContext(BaseAKSContext):
         string type or None
         """
         return self._get_gmsa_dns_server_and_root_domain_name(enable_validation=True)
+
+    def _get_disable_windows_gmsa(self, enable_validation: bool = False) -> bool:
+        """Internal function to obtain the value of disable_windows_gmsa.
+
+        This function supports the option of enable_validation. Please refer to function __validate_gmsa_options for
+        details of validation.
+
+        :return: bool
+        """
+        # disable_windows_gmsa is only supported in UPDATE
+        if self.decorator_mode == DecoratorMode.CREATE:
+            disable_windows_gmsa = False
+        else:
+            # read the original value passed by the command
+            disable_windows_gmsa = self.raw_param.get("disable_windows_gmsa")
+
+        # this parameter does not need dynamic completion
+        # validation
+        if enable_validation:
+            (
+                gmsa_dns_server,
+                gmsa_root_domain_name,
+            ) = self._get_gmsa_dns_server_and_root_domain_name(
+                enable_validation=False
+            )
+            self.__validate_gmsa_options(
+                self._get_enable_windows_gmsa(enable_validation=False),
+                disable_windows_gmsa,
+                gmsa_dns_server,
+                gmsa_root_domain_name,
+                self.get_yes(),
+            )
+        return disable_windows_gmsa
+
+    def get_disable_windows_gmsa(self) -> bool:
+        """Obtain the value of disable_windows_gmsa.
+
+        This function will verify the parameter by default. When disable_windows_gmsa is specified, if
+        gmsa_dns_server or gmsa_root_domain_name is assigned, a InvalidArgumentValueError will be raised;
+
+        :return: bool
+        """
+        return self._get_disable_windows_gmsa(enable_validation=True)
 
     # pylint: disable=too-many-statements
     def _get_service_principal_and_client_secret(
@@ -2143,6 +2205,12 @@ class AKSManagedClusterContext(BaseAKSContext):
         """
 
         return self._get_network_plugin(enable_validation=True)
+
+    def get_network_policy(self) -> Union[str, None]:
+        """Get the value of network_dataplane.
+        :return: str or None
+        """
+        return self.raw_param.get("network_policy")
 
     def get_network_dataplane(self) -> Union[str, None]:
         """Get the value of network_dataplane.
@@ -3770,13 +3838,14 @@ class AKSManagedClusterContext(BaseAKSContext):
         """
         # read the original value passed by the command
         private_dns_zone = self.raw_param.get("private_dns_zone")
-        # try to read the property value corresponding to the parameter from the `mc` object
-        if (
-            self.mc and
-            self.mc.api_server_access_profile and
-            self.mc.api_server_access_profile.private_dns_zone is not None
-        ):
-            private_dns_zone = self.mc.api_server_access_profile.private_dns_zone
+        # In create mode, try to read the property value corresponding to the parameter from the `mc` object.
+        if self.decorator_mode == DecoratorMode.CREATE:
+            if (
+                self.mc and
+                self.mc.api_server_access_profile and
+                self.mc.api_server_access_profile.private_dns_zone is not None
+            ):
+                private_dns_zone = self.mc.api_server_access_profile.private_dns_zone
 
         # this parameter does not need dynamic completion
         # validation
@@ -4643,17 +4712,13 @@ class AKSManagedClusterContext(BaseAKSContext):
 
         :return: string or None
         """
-        # default to None
-        support_plan = None
-        # try to read the property value corresponding to the parameter from the `mc` object
-        if self.mc and hasattr(self.mc, "support_plan") and self.mc.support_plan is not None:
-            support_plan = self.mc.support_plan
-
-        # if specified by customer, use the specified value
+        # take input
         support_plan = self.raw_param.get("k8s_support_plan")
+        if support_plan is None:
+            # user didn't update this property, load from existing ManagedCluster
+            if self.mc and hasattr(self.mc, "support_plan") and self.mc.support_plan is not None:
+                support_plan = self.mc.support_plan
 
-        # this parameter does not need dynamic completion
-        # this parameter does not need validation
         return support_plan
 
     def get_yes(self) -> bool:
@@ -4826,6 +4891,31 @@ class AKSManagedClusterContext(BaseAKSContext):
         :return: bool
         """
         return self._get_disable_vpa(enable_validation=True)
+
+    def get_force_upgrade(self) -> Union[bool, None]:
+        """Obtain the value of force_upgrade.
+        :return: bool or None
+        """
+        # this parameter does not need dynamic completion
+        # validation is done with param validator
+        enable_force_upgrade = self.raw_param.get("enable_force_upgrade")
+        disable_force_upgrade = self.raw_param.get("disable_force_upgrade")
+
+        if enable_force_upgrade is False and disable_force_upgrade is False:
+            return None
+        if enable_force_upgrade is not None:
+            return enable_force_upgrade
+        if disable_force_upgrade is not None:
+            return not disable_force_upgrade
+        return None
+
+    def get_upgrade_override_until(self) -> Union[str, None]:
+        """Obtain the value of upgrade_override_until.
+        :return: string or None
+        """
+        # this parameter does not need dynamic completion
+        # this parameter does not need validation
+        return self.raw_param.get("upgrade_override_until")
 
 
 class AKSManagedClusterCreateDecorator(BaseAKSManagedClusterDecorator):
@@ -6360,6 +6450,42 @@ class AKSManagedClusterUpdateDecorator(BaseAKSManagedClusterDecorator):
             mc.tags = tags
         return mc
 
+    def update_upgrade_settings(self, mc: ManagedCluster) -> ManagedCluster:
+        """Update upgrade settings for the ManagedCluster object.
+        :return: the ManagedCluster object
+        """
+        self._ensure_mc(mc)
+
+        existing_until = None
+        if mc.upgrade_settings is not None and mc.upgrade_settings.override_settings is not None and mc.upgrade_settings.override_settings.until is not None:
+            existing_until = mc.upgrade_settings.override_settings.until
+
+        force_upgrade = self.context.get_force_upgrade()
+        override_until = self.context.get_upgrade_override_until()
+
+        if force_upgrade is not None or override_until is not None:
+            if mc.upgrade_settings is None:
+                mc.upgrade_settings = self.models.ClusterUpgradeSettings()
+            if mc.upgrade_settings.override_settings is None:
+                mc.upgrade_settings.override_settings = self.models.UpgradeOverrideSettings()
+            # sets force_upgrade
+            if force_upgrade is not None:
+                mc.upgrade_settings.override_settings.force_upgrade = force_upgrade
+            # sets until
+            if override_until is not None:
+                try:
+                    mc.upgrade_settings.override_settings.until = parse(override_until)
+                except Exception:  # pylint: disable=broad-except
+                    raise InvalidArgumentValueError(
+                        f"{override_until} is not a valid datatime format."
+                    )
+            elif force_upgrade:
+                default_extended_until = datetime.datetime.utcnow() + datetime.timedelta(days=3)
+                if existing_until is None or existing_until.timestamp() < default_extended_until.timestamp():
+                    mc.upgrade_settings.override_settings.until = default_extended_until
+
+        return mc
+
     def process_attach_detach_acr(self, mc: ManagedCluster) -> None:
         """Attach or detach acr for the cluster.
 
@@ -6530,6 +6656,7 @@ class AKSManagedClusterUpdateDecorator(BaseAKSManagedClusterDecorator):
         api_server_authorized_ip_ranges = self.context.get_api_server_authorized_ip_ranges()
         disable_public_fqdn = self.context.get_disable_public_fqdn()
         enable_public_fqdn = self.context.get_enable_public_fqdn()
+        private_dns_zone = self.context.get_private_dns_zone()
         if api_server_authorized_ip_ranges is not None:
             # empty string is valid as it disables ip whitelisting
             profile_holder.authorized_ip_ranges = api_server_authorized_ip_ranges
@@ -6537,6 +6664,8 @@ class AKSManagedClusterUpdateDecorator(BaseAKSManagedClusterDecorator):
             profile_holder.enable_private_cluster_public_fqdn = False
         if enable_public_fqdn:
             profile_holder.enable_private_cluster_public_fqdn = True
+        if private_dns_zone is not None:
+            profile_holder.private_dns_zone = private_dns_zone
 
         # keep api_server_access_profile empty if none of its properties are updated
         if (
@@ -6558,8 +6687,9 @@ class AKSManagedClusterUpdateDecorator(BaseAKSManagedClusterDecorator):
         disable_ahub = self.context.get_disable_ahub()
         windows_admin_password = self.context.get_windows_admin_password()
         enable_windows_gmsa = self.context.get_enable_windows_gmsa()
+        disable_windows_gmsa = self.context.get_disable_windows_gmsa()
 
-        if any([enable_ahub, disable_ahub, windows_admin_password, enable_windows_gmsa]) and not mc.windows_profile:
+        if any([enable_ahub, disable_ahub, windows_admin_password, enable_windows_gmsa, disable_windows_gmsa]) and not mc.windows_profile:
             # seems we know the error
             raise UnknownError(
                 "Encounter an unexpected error while getting windows profile from the cluster in the process of update."
@@ -6577,6 +6707,10 @@ class AKSManagedClusterUpdateDecorator(BaseAKSManagedClusterDecorator):
                 enabled=True,
                 dns_server=gmsa_dns_server,
                 root_domain_name=gmsa_root_domain_name,
+            )
+        if disable_windows_gmsa:
+            mc.windows_profile.gmsa_profile = self.models.WindowsGmsaProfile(
+                enabled=False,
             )
         return mc
 
@@ -6665,6 +6799,11 @@ class AKSManagedClusterUpdateDecorator(BaseAKSManagedClusterDecorator):
 
         if pod_cidr:
             mc.network_profile.pod_cidr = pod_cidr
+
+        network_policy = self.context.get_network_policy()
+        if network_policy:
+            mc.network_profile.network_policy = network_policy
+
         return mc
 
     def update_http_proxy_config(self, mc: ManagedCluster) -> ManagedCluster:
@@ -7200,6 +7339,8 @@ class AKSManagedClusterUpdateDecorator(BaseAKSManagedClusterDecorator):
         mc = self.update_k8s_support_plan(mc)
         # update azure monitor metrics profile
         mc = self.update_azure_monitor_profile(mc)
+        # update cluster upgrade settings
+        mc = self.update_upgrade_settings(mc)
         return mc
 
     def check_is_postprocessing_required(self, mc: ManagedCluster) -> bool:

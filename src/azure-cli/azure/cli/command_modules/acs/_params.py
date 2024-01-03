@@ -19,6 +19,7 @@ from azure.cli.command_modules.acs._consts import (
     CONST_LOAD_BALANCER_SKU_STANDARD, CONST_MANAGED_CLUSTER_SKU_TIER_FREE,
     CONST_MANAGED_CLUSTER_SKU_TIER_STANDARD, CONST_MANAGED_CLUSTER_SKU_TIER_PREMIUM,
     CONST_NETWORK_DATAPLANE_AZURE, CONST_NETWORK_DATAPLANE_CILIUM,
+    CONST_NETWORK_POLICY_AZURE, CONST_NETWORK_POLICY_CALICO, CONST_NETWORK_POLICY_CILIUM, CONST_NETWORK_POLICY_NONE,
     CONST_NETWORK_PLUGIN_AZURE, CONST_NETWORK_PLUGIN_KUBENET,
     CONST_NETWORK_PLUGIN_MODE_OVERLAY, CONST_NETWORK_PLUGIN_NONE,
     CONST_NODE_IMAGE_UPGRADE_CHANNEL, CONST_NONE_UPGRADE_CHANNEL,
@@ -65,7 +66,9 @@ from azure.cli.command_modules.acs._validators import (
     validate_registry_name, validate_sku_tier, validate_snapshot_id,
     validate_snapshot_name, validate_spot_max_price, validate_ssh_key,
     validate_nodepool_taints, validate_vm_set_type, validate_vnet_subnet_id, validate_k8s_support_plan,
-    validate_utc_offset, validate_start_date, validate_start_time)
+    validate_utc_offset, validate_start_date, validate_start_time,
+    validate_force_upgrade_disable_and_enable_parameters,
+    validate_allowed_host_ports, validate_application_security_groups)
 from azure.cli.core.commands.parameters import (
     edge_zone_type, file_type, get_enum_type,
     get_resource_name_completion_list, get_three_state_flag, name_type,
@@ -124,6 +127,7 @@ sku_tiers = [CONST_MANAGED_CLUSTER_SKU_TIER_FREE, CONST_MANAGED_CLUSTER_SKU_TIER
 network_plugins = [CONST_NETWORK_PLUGIN_KUBENET, CONST_NETWORK_PLUGIN_AZURE, CONST_NETWORK_PLUGIN_NONE]
 network_plugin_modes = [CONST_NETWORK_PLUGIN_MODE_OVERLAY]
 network_dataplanes = [CONST_NETWORK_DATAPLANE_AZURE, CONST_NETWORK_DATAPLANE_CILIUM]
+network_policies = [CONST_NETWORK_POLICY_AZURE, CONST_NETWORK_POLICY_CALICO, CONST_NETWORK_POLICY_CILIUM, CONST_NETWORK_POLICY_NONE]
 outbound_types = [CONST_OUTBOUND_TYPE_LOAD_BALANCER, CONST_OUTBOUND_TYPE_USER_DEFINED_ROUTING, CONST_OUTBOUND_TYPE_MANAGED_NAT_GATEWAY, CONST_OUTBOUND_TYPE_USER_ASSIGNED_NAT_GATEWAY]
 auto_upgrade_channels = [
     CONST_RAPID_UPGRADE_CHANNEL,
@@ -317,6 +321,8 @@ def load_arguments(self, _):
         c.argument('linux_os_config')
         c.argument('host_group_id', validator=validate_host_group_id)
         c.argument('gpu_instance_profile', arg_type=get_enum_type(gpu_instance_profiles))
+        c.argument('nodepool_allowed_host_ports', nargs='+', validator=validate_allowed_host_ports, help="allowed host ports for agentpool")
+        c.argument('nodepool_asg_ids', nargs='+', validator=validate_application_security_groups, help="application security groups for agentpool")
         # azure monitor profile
         c.argument('enable_azure_monitor_metrics', action='store_true')
         c.argument('azure_monitor_workspace_resource_id', validator=validate_azuremonitorworkspaceresourceid)
@@ -340,6 +346,7 @@ def load_arguments(self, _):
         c.argument('nat_gateway_managed_outbound_ip_count', type=int, validator=validate_nat_gateway_managed_outbound_ip_count)
         c.argument('nat_gateway_idle_timeout', type=int, validator=validate_nat_gateway_idle_timeout)
         c.argument('network_dataplane', arg_type=get_enum_type(network_dataplanes))
+        c.argument('network_policy')
         c.argument('outbound_type', arg_type=get_enum_type(outbound_types))
         c.argument('auto_upgrade_channel', arg_type=get_enum_type(auto_upgrade_channels))
         c.argument('cluster_autoscaler_profile', nargs='+', options_list=["--cluster-autoscaler-profile", "--ca-profile"],
@@ -348,8 +355,10 @@ def load_arguments(self, _):
         c.argument('no_uptime_sla', action='store_true', deprecate_info=c.deprecate(target='--no-uptime-sla', hide=True))
         c.argument('tier', arg_type=get_enum_type(sku_tiers), validator=validate_sku_tier)
         c.argument('api_server_authorized_ip_ranges', validator=validate_ip_ranges)
+        # private cluster parameters
         c.argument('enable_public_fqdn', action='store_true')
         c.argument('disable_public_fqdn', action='store_true')
+        c.argument('private_dns_zone')
         c.argument('enable_managed_identity', action='store_true')
         c.argument('assign_identity', validator=validate_assign_identity)
         c.argument('assign_kubelet_identity', validator=validate_assign_kubelet_identity)
@@ -366,6 +375,7 @@ def load_arguments(self, _):
         c.argument('enable_windows_gmsa', action='store_true')
         c.argument('gmsa_dns_server')
         c.argument('gmsa_root_domain_name')
+        c.argument('disable_windows_gmsa', action='store_true')
         c.argument('attach_acr', acr_arg_type, validator=validate_acr)
         c.argument('detach_acr', acr_arg_type, validator=validate_acr)
         c.argument('disable_defender', action='store_true', validator=validate_defender_disable_and_enable_parameters)
@@ -394,6 +404,9 @@ def load_arguments(self, _):
         c.argument('disable_keda', action='store_true')
         c.argument('enable_vpa', action='store_true', help='enable vertical pod autoscaler for cluster')
         c.argument('disable_vpa', action='store_true', help='disable vertical pod autoscaler for cluster')
+        c.argument('enable_force_upgrade', action='store_true')
+        c.argument('disable_force_upgrade', action='store_true', validator=validate_force_upgrade_disable_and_enable_parameters)
+        c.argument('upgrade_override_until')
         # addons
         c.argument('enable_secret_rotation', action='store_true')
         c.argument('disable_secret_rotation', action='store_true', validator=validate_keyvault_secrets_provider_disable_and_enable_parameters)
@@ -544,6 +557,7 @@ def load_arguments(self, _):
         c.argument('node_osdisk_type', arg_type=get_enum_type(node_os_disk_types))
         c.argument('node_osdisk_size', type=int)
         c.argument('max_surge', validator=validate_max_surge)
+        c.argument('drain_timeout', type=int)
         c.argument('mode', get_enum_type(node_mode_types))
         c.argument('scale_down_mode', arg_type=get_enum_type(scale_down_modes))
         c.argument('max_pods', type=int, options_list=['--max-pods', '-m'])
@@ -556,6 +570,8 @@ def load_arguments(self, _):
         c.argument('linux_os_config')
         c.argument('host_group_id', validator=validate_host_group_id)
         c.argument('gpu_instance_profile', arg_type=get_enum_type(gpu_instance_profiles))
+        c.argument('allowed_host_ports', nargs='+', validator=validate_allowed_host_ports)
+        c.argument('asg_ids', nargs='+', validator=validate_application_security_groups)
 
     with self.argument_context('aks nodepool update', resource_type=ResourceType.MGMT_CONTAINERSERVICE, operation_group='agent_pools') as c:
         c.argument('enable_cluster_autoscaler', options_list=[
@@ -570,11 +586,15 @@ def load_arguments(self, _):
         c.argument('tags', tags_type)
         c.argument('node_taints', validator=validate_nodepool_taints)
         c.argument('max_surge', validator=validate_max_surge)
+        c.argument('drain_timeout', type=int)
         c.argument('mode', get_enum_type(node_mode_types))
         c.argument('scale_down_mode', arg_type=get_enum_type(scale_down_modes))
+        c.argument('allowed_host_ports', nargs='+', validator=validate_allowed_host_ports)
+        c.argument('asg_ids', nargs='+', validator=validate_application_security_groups)
 
     with self.argument_context('aks nodepool upgrade') as c:
         c.argument('max_surge', validator=validate_max_surge)
+        c.argument('drain_timeout', type=int)
         c.argument('snapshot_id', validator=validate_snapshot_id)
         c.argument('yes', options_list=['--yes', '-y'], help='Do not prompt for confirmation.', action='store_true')
 
