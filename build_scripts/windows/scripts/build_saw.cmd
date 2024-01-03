@@ -20,15 +20,15 @@ if "%BLOB_SAS%"=="" (
 
 set ARCH=x64
 
-set PYTHON_VERSION=3.10.10
-set SPYTHON_VERSION=3.10.23194.4
+set PYTHON_VERSION=3.11.5
+set SPYTHON_VERSION=3.11.23346.1
 
 set WIX_DOWNLOAD_URL="https://azurecliprod.blob.core.windows.net/msi/wix310-binaries-mirror.zip"
 @REM windows-http only support amd64
 set PYTHON_DOWNLOAD_URL="https://www.python.org/ftp/python/%PYTHON_VERSION%/python-%PYTHON_VERSION%-embed-amd64.zip"
 set NUGET_DOWNLOAD_URL="https://dist.nuget.org/win-x86-commandline/v6.2.1/nuget.exe"
 set BASE_MISC_URL=https://azurecliedge.blob.core.windows.net/saw
-set WINDOWS_HTTP_FILENAME=windows_http-0.23.017.1-cp310-cp310-win_amd64.whl
+set WINDOWS_HTTP_FILENAME=windows_http-0.23.251.4-cp311-cp311-win_amd64.whl
 set SPYTHON_FILENAME=Microsoft.Internal.SPython.win32.%SPYTHON_VERSION%.nupkg
 
 REM https://pip.pypa.io/en/stable/installation/#get-pip-py
