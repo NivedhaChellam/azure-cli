@@ -5,6 +5,10 @@
 # pylint: disable=wrong-import-position
 from azure.cli.core.util import is_spython
 
+# supress warnings from distutils and pkg_resources
+import warnings
+warnings.simplefilter("ignore")
+
 import sys
 from azure.cli.core.vendored_sdks import winrequests
 
@@ -14,14 +18,9 @@ old_import = __import__
 from unittest.mock import Mock
 import builtins
 
-# supress warnings from distutils and pkg_resources
-import warnings
-warnings.simplefilter("ignore")
-
-
 def skip_imports(name, locals=None, globals=None, fromlist=None, level=0):
-    # Some vendored packages still try to import these packages, which are not supported in SPython
-    skip_list = {'urllib3', 'ctypes', 'requests_oauthlib', 'cryptography'}
+    # Some dependencies still try to import these packages, which are not supported in SPython
+    skip_list = {'urllib3', 'requests_oauthlib', 'cryptography', 'portalocker'}
     if name in skip_list or any(name.startswith(f'{b}.') for b in skip_list):
         return Mock()
     else:
@@ -47,12 +46,14 @@ from knack.log import get_logger
 __author__ = "Microsoft Corporation <python@microsoft.com>"
 __version__ = "2.55.0"
 
+
 # A workaround for https://bugs.python.org/issue32502 (https://github.com/Azure/azure-cli/issues/5184)
 # If uuid1 raises ValueError, use uuid4 instead.
 try:
     uuid.uuid1()
 except ValueError:
     uuid.uuid1 = uuid.uuid4
+
 
 logger = get_logger(__name__)
 

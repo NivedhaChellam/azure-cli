@@ -6,6 +6,7 @@
 import sys
 import os
 import subprocess
+import portalocker
 
 from azure.cli.telemetry.util import save_payload
 
@@ -80,8 +81,6 @@ def save(config_dir, payload):
 
 
 def main():
-    import portalocker
-
     from azure.cli.telemetry.components.telemetry_note import TelemetryNote
     from azure.cli.telemetry.components.records_collection import RecordsCollection
     from azure.cli.telemetry.components.telemetry_client import CliTelemetryClient
