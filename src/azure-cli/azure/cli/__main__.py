@@ -5,7 +5,7 @@
 # pylint: disable=wrong-import-position
 from azure.cli.core.util import is_spython
 
-# supress warnings from distutils and pkg_resources
+# supress DeprecationWarning warnings from distutils and pkg_resources
 import warnings
 warnings.simplefilter("ignore")
 
@@ -18,9 +18,10 @@ old_import = __import__
 from unittest.mock import Mock
 import builtins
 
+
 def skip_imports(name, locals=None, globals=None, fromlist=None, level=0):
     # Some dependencies still try to import these packages, which are not supported in SPython
-    skip_list = {'urllib3', 'requests_oauthlib', 'cryptography', 'portalocker'}
+    skip_list = {'urllib3', 'requests_oauthlib', 'cryptography'}
     if name in skip_list or any(name.startswith(f'{b}.') for b in skip_list):
         return Mock()
     else:
