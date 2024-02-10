@@ -61,7 +61,7 @@
 /src/azure-cli/azure/cli/command_modules/serviceconnector/ @yungezz @houk-ms @xfz11 @yanzhudd @kairu-ms
 /src/azure-cli/azure/cli/command_modules/servicefabric/ @QingChenmsft @zhoxing-ms  @yanzhudd
 /src/azure-cli/azure/cli/command_modules/sql/ @jaredmoo @evelyn-ys @calvinhzy
-/src/azure-cli/azure/cli/command_modules/sqlvm/ @amchauh
+/src/azure-cli/azure/cli/command_modules/sqlvm/ @nichella
 /src/azure-cli/azure/cli/command_modules/storage/  @zhoxing-ms @evelyn-ys @calvinhzy
 /src/azure-cli/azure/cli/command_modules/synapse/  @idear1203 @zesluo @evelyn-ys
 /src/azure-cli/azure/cli/command_modules/util/ @jiasli @zhoxing-ms @evelyn-ys
